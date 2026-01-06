@@ -5,64 +5,30 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="icon" type="image/png" href="images/icon.png" />
         <script>(function () {
-    function fixAttrs(node) {
-        if (!node || node.nodeType !== 1) return;
+    function interceptProp(proto, prop) {
+        const desc = Object.getOwnPropertyDescriptor(proto, prop);
+        if (!desc || !desc.set) return;
 
-        const fix = el => {
-            if (el.hasAttribute('src')) {
-                const v = el.getAttribute('src');
-                if (v && v.startsWith('/')) el.setAttribute('src', v.slice(1));
-            }
-            if (el.hasAttribute('href')) {
-                const v = el.getAttribute('href');
-                if (v && v.startsWith('/')) el.setAttribute('href', v.slice(1));
-            }
-        };
-
-        // Fix root
-        fix(node);
-
-        // Fix children
-        node.querySelectorAll?.('[src], [href]').forEach(fix);
-    }
-
-    function wrap(proto, fnName) {
-        const original = proto[fnName];
-        if (!original) return;
-
-        proto[fnName] = function (...args) {
-            for (const arg of args) {
-                if (arg instanceof Node) fixAttrs(arg);
-            }
-            return original.apply(this, args);
-        };
-    }
-
-    // Core DOM insertion APIs
-    wrap(Node.prototype, 'appendChild');
-    wrap(Node.prototype, 'insertBefore');
-    wrap(Node.prototype, 'replaceChild');
-
-
-    // insertAdjacentHTML needs special handling
-    const originalInsertAdjacentHTML = Element.prototype.insertAdjacentHTML;
-    Element.prototype.insertAdjacentHTML = function (position, html) {
-        const tpl = document.createElement('template');
-        tpl.innerHTML = html;
-
-        tpl.content.querySelectorAll('[src], [href]').forEach(el => {
-            if (el.hasAttribute('src')) {
-                const v = el.getAttribute('src');
-                if (v.startsWith('/')) el.setAttribute('src', v.slice(1));
-            }
-            if (el.hasAttribute('href')) {
-                const v = el.getAttribute('href');
-                if (v.startsWith('/')) el.setAttribute('href', v.slice(1));
+        Object.defineProperty(proto, prop, {
+            get: desc.get,
+            set(value) {
+                if (typeof value === 'string' && value.startsWith('/')) {
+                    value = value.slice(1);
+                }
+                return desc.set.call(this, value);
             }
         });
+    }
 
-        return originalInsertAdjacentHTML.call(this, position, tpl.innerHTML);
-    };
+    // HTML elements that commonly use src/href
+    interceptProp(HTMLImageElement.prototype, 'src');
+    interceptProp(HTMLScriptElement.prototype, 'src');
+    interceptProp(HTMLVideoElement.prototype, 'src');
+    interceptProp(HTMLAudioElement.prototype, 'src');
+    interceptProp(HTMLIFrameElement.prototype, 'src');
+    interceptProp(HTMLSourceElement.prototype, 'src');
+    interceptProp(HTMLAnchorElement.prototype, 'href');
+    interceptProp(HTMLLinkElement.prototype, 'href');
 })();
 
 </script>
