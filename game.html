@@ -43,8 +43,6 @@
     wrap(Node.prototype, 'insertBefore');
     wrap(Node.prototype, 'replaceChild');
 
-    // prepend is on ParentNode
-    wrap(ParentNode.prototype, 'prepend');
 
     // insertAdjacentHTML needs special handling
     const originalInsertAdjacentHTML = Element.prototype.insertAdjacentHTML;
