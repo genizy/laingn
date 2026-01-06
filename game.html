@@ -5,49 +5,68 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="icon" type="image/png" href="images/icon.png" />
         <script>(function () {
-    function fixAttr(el, attr) {
-        if (!el.hasAttribute(attr)) return;
+    function fixAttrs(node) {
+        if (!node || node.nodeType !== 1) return;
 
-        const val = el.getAttribute(attr);
-        if (val && val.startsWith('/')) {
-            el.setAttribute(attr, val.slice(1));
-        }
-    }
-
-    function processNode(node) {
-        if (node.nodeType !== 1) return; // element only
-
-        // Check the node itself
-        fixAttr(node, 'src');
-        fixAttr(node, 'href');
-
-        // Check children
-        node.querySelectorAll('[src], [href]').forEach(el => {
-            fixAttr(el, 'src');
-            fixAttr(el, 'href');
-        });
-    }
-
-    // Process anything already on the page
-    document.querySelectorAll('[src], [href]').forEach(el => {
-        fixAttr(el, 'src');
-        fixAttr(el, 'href');
-    });
-
-    // Watch for new elements
-    const observer = new MutationObserver(mutations => {
-        for (const m of mutations) {
-            for (const node of m.addedNodes) {
-                processNode(node);
+        const fix = el => {
+            if (el.hasAttribute('src')) {
+                const v = el.getAttribute('src');
+                if (v && v.startsWith('/')) el.setAttribute('src', v.slice(1));
             }
-        }
-    });
+            if (el.hasAttribute('href')) {
+                const v = el.getAttribute('href');
+                if (v && v.startsWith('/')) el.setAttribute('href', v.slice(1));
+            }
+        };
 
-    observer.observe(document.documentElement, {
-        childList: true,
-        subtree: true
-    });
+        // Fix root
+        fix(node);
+
+        // Fix children
+        node.querySelectorAll?.('[src], [href]').forEach(fix);
+    }
+
+    function wrap(proto, fnName) {
+        const original = proto[fnName];
+        if (!original) return;
+
+        proto[fnName] = function (...args) {
+            for (const arg of args) {
+                if (arg instanceof Node) fixAttrs(arg);
+            }
+            return original.apply(this, args);
+        };
+    }
+
+    // Core DOM insertion APIs
+    wrap(Node.prototype, 'appendChild');
+    wrap(Node.prototype, 'insertBefore');
+    wrap(Node.prototype, 'replaceChild');
+
+    // prepend is on ParentNode
+    wrap(ParentNode.prototype, 'prepend');
+
+    // insertAdjacentHTML needs special handling
+    const originalInsertAdjacentHTML = Element.prototype.insertAdjacentHTML;
+    Element.prototype.insertAdjacentHTML = function (position, html) {
+        const tpl = document.createElement('template');
+        tpl.innerHTML = html;
+
+        tpl.content.querySelectorAll('[src], [href]').forEach(el => {
+            if (el.hasAttribute('src')) {
+                const v = el.getAttribute('src');
+                if (v.startsWith('/')) el.setAttribute('src', v.slice(1));
+            }
+            if (el.hasAttribute('href')) {
+                const v = el.getAttribute('href');
+                if (v.startsWith('/')) el.setAttribute('href', v.slice(1));
+            }
+        });
+
+        return originalInsertAdjacentHTML.call(this, position, tpl.innerHTML);
+    };
 })();
+
 </script>
         <style>
             .header {
