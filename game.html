@@ -4,6 +4,51 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="icon" type="image/png" href="images/icon.png" />
+        <script>(function () {
+    function fixAttr(el, attr) {
+        if (!el.hasAttribute(attr)) return;
+
+        const val = el.getAttribute(attr);
+        if (val && val.startsWith('/')) {
+            el.setAttribute(attr, val.slice(1));
+        }
+    }
+
+    function processNode(node) {
+        if (node.nodeType !== 1) return; // element only
+
+        // Check the node itself
+        fixAttr(node, 'src');
+        fixAttr(node, 'href');
+
+        // Check children
+        node.querySelectorAll('[src], [href]').forEach(el => {
+            fixAttr(el, 'src');
+            fixAttr(el, 'href');
+        });
+    }
+
+    // Process anything already on the page
+    document.querySelectorAll('[src], [href]').forEach(el => {
+        fixAttr(el, 'src');
+        fixAttr(el, 'href');
+    });
+
+    // Watch for new elements
+    const observer = new MutationObserver(mutations => {
+        for (const m of mutations) {
+            for (const node of m.addedNodes) {
+                processNode(node);
+            }
+        }
+    });
+
+    observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true
+    });
+})();
+</script>
         <style>
             .header {
                 border-bottom: none;
